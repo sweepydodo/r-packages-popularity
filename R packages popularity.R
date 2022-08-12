@@ -71,7 +71,7 @@ save(df, file = "CRANlogs/CRANlogs.RData")
 x <- df[, (downloads = .N), package][order(-downloads)]
 x[package == "data.table"]
 
-# plot 1: Compare downloads of selected packages on a weekly basis
+# ------------------- Compare downloads of specific packages per week
 x <- c("data.table", "dplyr", "plyr", "dtplyr")
 y <- df[package %in% x
         , .(downloads = .N)
@@ -82,24 +82,16 @@ ggplot(y, aes(x = week, y = downloads, color = package, group = package)) +
   geom_line() +
   ylab("Downloads") +
   theme_bw() +
-  theme(axis.text.x  = element_text(angle=90, size=8, vjust=0.5))
+  theme(axis.text.x  = element_text(angle=90, size=8, vjust=0.5)) +
+  theme_minimal()
+
+
+# ------------------- Distribution by day of week
+x <- df[, .(downloads = .N), weekday]
+
+ggplot(x, aes(x = weekday, y = downloads)) +
+  geom_bar(stat = 'identity') +
+  theme_minimal()
 
 
 
-agg1 <- dat[J(c("psych", "TripleR", "RSA")), length(unique(ip_id)), by=c("week", "package")]
-ggplot(agg1, aes(x=week, y=V1, color=package, group=package)) + geom_line() + ylab("Downloads") + theme_bw() + theme(axis.text.x  = element_text(angle=90, size=8, vjust=0.5))
-
-
-
-
-
-
-
-
-x <- c('os', 'country')
-
-lapply(x, \(i) df[, .(rows = .N), get(i)
-                  ][, pc := round(rows / sum(rows)*100, 1)
-                    ][order(-rows)
-                      ]
-       )
