@@ -1,6 +1,6 @@
 
-library(lubridate)
 library(ggplot2)
+library(lubridate)
 library(data.table)
 setDTthreads(threads = parallel::detectCores()-1)
 
@@ -49,14 +49,10 @@ df <- rbindlist(y)
 df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
            # , package = factor(package)
            # , country = factor(country)
-            weekday = lubridate::wday(date, week_start = 1)      # 1 = Monday
-           , week = strftime(as.POSIXlt(date), format = "%Y-%W")
+            weekday = lubridate::wday(date, week_start = 1)  # 1 = Monday
+           , week = lubridate::isoweek(date)                 # week starts on Monday
            )
    ]
-
-xxx <- Sys.time()
-df[, .(date, week = strftime(as.POSIXlt(date), format = "%Y-%W"))]
-Sys.time() - xxx
 
 # setkey(df, package, date, week, country)
 
