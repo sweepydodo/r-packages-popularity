@@ -27,7 +27,6 @@ for (i in seq_along(c))
   print(paste0(i, "/", length(c)))
   download.file(b[i], paste0('CRANlogs/', c[i], '.csv.gz'))
 }
-
 print(paste('download took', round(difftime(Sys.time(), xxx, units = 'mins'), 2), 'mins'))
 
 
@@ -45,7 +44,6 @@ for (i in x)
   print(paste("Reading", i, "..."))
   y[[i]] <- fread(i)
 }
-
 print(paste('importing csvs took', round(difftime(Sys.time(), xxx, units = 'mins'), 2), 'mins'))
 
 # rbind
