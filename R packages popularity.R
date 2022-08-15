@@ -36,16 +36,16 @@ print(paste('download took', round(difftime(Sys.time(), xxx, units = 'mins'), 2)
 #_______________________________________________________________________________
 
 # construct URLs
-x <- Sys.Date() - 25                       # start
-y <- Sys.Date() - 24                       # end
-z <- seq(x, y, by = 'day')                # all dates
-a <- as.POSIXlt(z)$year + 1900            # year
+x <- Sys.Date() - 25                           # start
+y <- Sys.Date() - 24                           # end
+z <- seq(x, y, by = 'day')                     # all dates
+a <- as.POSIXlt(z)$year + 1900                 # year
 b <- paste0('http://cran-logs.rstudio.com/', a, '/', z, '.csv.gz')   # urls
+c <- c('date', 'time', 'package', 'country')   # download specific columns ONLY
 
-
-# # start downloads
+# # start downloads (serially)
 # system.time(
-# c <- lapply(b, \(i) fread(i))
+# d <- lapply(b, \(i) fread(i, select = c))
 # )
 
 
@@ -55,14 +55,14 @@ cl <- makeCluster(n_cores)
 registerDoParallel(cl, cores = n_cores)
 
 # download files
-xxx <- Sys.time()
+system.time(
 d <- foreach(i = seq_along(b)
              , .packages = c("data.table")
              ) %dopar%
   {
-    fread(b[[i]])
+    fread(b[[i]], select = c)
   }
-Sys.time() - xxx
+)
 
 # stop hoarding cluster
 stopCluster(cl)
