@@ -1,12 +1,13 @@
 
 library(ggplot2)
 library(lubridate)
+library(doParallel)
 library(data.table)
 setDTthreads(threads = parallel::detectCores()-1)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#                     1. download all log files  ----
+#                   1. download all log files (to HDD) ----
 #_______________________________________________________________________________
 
 # construct URLs
@@ -28,6 +29,48 @@ for (i in seq_along(c))
   download.file(b[i], paste0('CRANlogs/', c[i], '.csv.gz'))
 }
 print(paste('download took', round(difftime(Sys.time(), xxx, units = 'mins'), 2), 'mins'))
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#                   1. download all log files (to RAM) ----
+#_______________________________________________________________________________
+
+# construct URLs
+x <- Sys.Date() - 25                       # start
+y <- Sys.Date() - 24                       # end
+z <- seq(x, y, by = 'day')                # all dates
+a <- as.POSIXlt(z)$year + 1900            # year
+b <- paste0('http://cran-logs.rstudio.com/', a, '/', z, '.csv.gz')   # urls
+
+
+# # start downloads
+# system.time(
+# c <- lapply(b, \(i) fread(i))
+# )
+
+
+# setup computing cluster (parallel running)
+n_cores <- detectCores() - 1
+cl <- makeCluster(n_cores)
+registerDoParallel(cl, cores = n_cores)
+
+# download files
+xxx <- Sys.time()
+d <- foreach(i = seq_along(b)
+             , .packages = c("data.table")
+             ) %dopar%
+  {
+    fread(b[[i]])
+  }
+Sys.time() - xxx
+
+# stop hoarding cluster
+stopCluster(cl)
+
+# clean environment
+rm(list=letters[1:26]
+   , n_cores, cl
+   )
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
