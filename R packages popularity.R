@@ -60,19 +60,19 @@ rm(d)
 # save as .RData
 system.time( save(df, file = "CRANlogs/CRANlogs.RData") )
 
+# for later analyses: load the saved data.table
+# load("CRANlogs/CRANlogs.RData")
+
 # define variable types
 df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
            # , package = factor(package)
            # , country = factor(country)
             day_of_week = lubridate::wday(date, week_start = 1)  # 1 = Monday
            , week = lubridate::isoweek(date)                     # week starts on Monday
+           , hour = substr(time, 1,2)
            )
    ]
 
-# setkey(df, package, date, week, country)
-
-# for later analyses: load the saved data.table
-# load("CRANlogs/CRANlogs.RData")
 
 
 
@@ -142,11 +142,36 @@ df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
 #                               3. plot  ----
 #_______________________________________________________________________________
 
-# Overall downloads of packages
-x <- df[, (downloads = .N), package][order(-downloads)]
-x[package == "data.table"]
+#-------------------- top 20 downloads
+x <- df[, .(downloads = .N), package][order(-downloads)]
+x[, .I[package == "data.table"]]  # data.table's ranking in overall downloads
 
-# ------------------- Compare downloads of specific packages by week
+y <- 10    # top n to display
+z <- x[1:y][['package']]
+
+ggplot(x[1:y], aes(x=z, y=downloads)) +
+  geom_bar(stat = "identity") + 
+  scale_x_discrete(limits = z) +
+  xlab('') +
+  theme_minimal() +
+  scale_y_continuous(labels = comma) +
+  ggtitle(paste('Top', y, 'downloads'))
+
+
+
+#-------------------- All downloads by date
+x <- df[, .(downloads = .N), week][, week := as.factor(week)][order(week)]
+
+ggplot(x, aes(x = week, y = downloads, group = 1)) +
+  geom_line() +
+  # geom_text(aes(label=round(y)), hjust=0, vjust=0) +        # data point label
+  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  # x axis angle
+  theme_minimal() +
+  scale_y_continuous(labels = comma) +
+  ggtitle('Downloads by week')
+
+
+#-------------------- Compare downloads of specific packages by week
 x <- c("data.table", "dplyr", "plyr", "dtplyr")
 y <- df[package %in% x
         , .(downloads = .N)
@@ -164,7 +189,7 @@ ggplot(y, aes(x = week, y = downloads, color = package, group = package)) +
   ggtitle('Downloads of specific packages by week')
 
 
-# ------------------- Distribution (of mean downloads) by day of week
+#-------------------- Distribution (of mean downloads) by day of week
 system.time(
   x <- df[, .(downloads = .N)
           , .(day_of_week, week)
@@ -182,9 +207,19 @@ ggplot(x, aes(x = day_of_week, y = downloads)) +
   ggtitle('Distribution of average downloads by day of week')
 
 
+#-------------------- Distribution (of mean downloads) by hour of day
 
-
-
+x <- df[, .(downloads = .N)
+          , .(hour, date)
+          ][, .(downloads = mean(downloads))
+            , .(hour)
+            ]
+   
+ggplot(x, aes(x = hour, y = downloads)) +
+  geom_bar(stat = 'identity') +
+  theme_minimal() +
+  scale_y_continuous(labels = comma) +
+  ggtitle('Distribution of average downloads by hour of day')
 
 
 
