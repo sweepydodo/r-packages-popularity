@@ -149,7 +149,7 @@ x[, .I[package == "data.table"]]  # data.table's ranking in overall downloads
 y <- 10    # top n to display
 z <- x[1:y][['package']]
 
-ggplot(x[1:y], aes(x=z, y=downloads)) +
+ggplot(x[1:y], aes(x=package, y=downloads)) +
   geom_bar(stat = "identity") + 
   scale_x_discrete(limits = z) +
   xlab('') +
