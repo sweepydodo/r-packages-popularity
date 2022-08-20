@@ -2,7 +2,7 @@
 library(ggplot2)
 library(scales)
 library(lubridate)
-library(doParallel)
+# library(doParallel)
 library(data.table)
 setDTthreads(threads = parallel::detectCores()-1)
 
@@ -98,44 +98,45 @@ for (i in seq_along(b))
   print(paste0(i, "/", length(b), ' or ', round(i/length(b)*100, 1), ' %'))
   download.file(b[i], paste0('CRANlogs/', z[i], '.csv.gz'))
 }
-print(paste('download took', round(difftime(Sys.time(), xxx, units = 'mins'), 2), 'mins'))
+Sys.time() - xxx
 
 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# #                          2. import csvs (from HDD) ----
-# #_______________________________________________________________________________
-# 
-# x <- list.files("CRANlogs", full.names = T)     # list of csvs
-# y <- vector('list', length(x))                  # initialise
-# 
-# # import csvs
-# xxx <- Sys.time()
-# for (i in x)
-# {
-#   print(paste("Reading", i, "..."))
-#   y[[i]] <- fread(i)
-# }
-# print(paste('importing csvs took', round(difftime(Sys.time(), xxx, units = 'mins'), 2), 'mins'))
-# 
-# # rbind
-# system.time( df <- rbindlist(y) )
-# 
-# # define variable types
-# df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
-#            # , package = factor(package)
-#            # , country = factor(country)
-#             weekday = lubridate::wday(date, week_start = 1)  # 1 = Monday
-#            , week = lubridate::isoweek(date)                 # week starts on Monday
-#            )
-#    ]
-# 
-# # setkey(df, package, date, week, country)
-# 
-# # save as .RData
-# system.time( save(df, file = "CRANlogs/CRANlogs.RData") )
-# 
-# # for later analyses: load the saved data.table
-# # load("CRANlogs/CRANlogs.RData")
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#                          2. import csvs (from HDD) ----
+#_______________________________________________________________________________
+
+x <- list.files("CRANlogs", full.names = T)     # list of csvs
+df <- vector('list', length(x))                  # initialise
+
+# import csvs
+xxx <- Sys.time()
+for (i in seq_along(x))
+{
+  print(paste(x[i], "-", round(i/length(x)*100, 1), ' %'))
+  df[[i]] <- fread(x[i])
+}
+Sys.time() - xxx
+
+# rbind
+system.time( df <- rbindlist(df) )
+
+
+# define variable types
+df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
+           # , package = factor(package)
+           # , country = factor(country)
+            weekday = lubridate::wday(date, week_start = 1)  # 1 = Monday
+           , week = lubridate::isoweek(date)                 # week starts on Monday
+           )
+   ]
+
+# setkey(df, package, date, week, country)
+
+# save as .RData
+system.time( save(df, file = "CRANlogs/CRANlogs.RData") )
+
+# for later analyses: load the saved data.table
+# load("CRANlogs/CRANlogs.RData")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
