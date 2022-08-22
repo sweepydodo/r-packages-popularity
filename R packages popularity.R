@@ -107,19 +107,23 @@ Sys.time() - xxx
 
 x <- list.files("CRANlogs", full.names = T)     # list of csvs. Local machine can only take 3.5 months' data
 y <- c('date', 'time', 'package', 'country')    # import specific columns ONLY
-df <- vector('list', length(x))                  # initialise
+df <- vector('list', length(x))                 # initialise
 
 # import csvs
 xxx <- Sys.time()
 for (i in seq_along(x))
 {
+  # print progress
   print(paste(x[i], "-", round(i/length(x)*100, 1), ' %'))
+  
+  # import csvs
   df[[i]] <- fread(x[i],  select = y)
 }
-Sys.time() - xxx  # 11 mins
+Sys.time() - xxx  # 5.4 mins (4.5 month' data)
 
 # rbind
-system.time( df <- rbindlist(df) )   # 5.7 mins
+system.time( df <- rbindlist(df) )   # 1.7 mins
+dim(df)   # 820,648,249  4
 
 
 # define variable types
@@ -132,15 +136,15 @@ df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
            , hour = substr(time, 1,2)
            )
    ]
-)    # 10 mins
-
-# setkey(df, package, date, week, country)
+)    # 12 mins
 
 # save as .RData
-system.time( save(df, file = "CRANlogs/CRANlogs.RData") )  # 26 mins
+system.time( save(df, file = "CRANlogs.RData") )  # 14 mins
 
 # for later analyses: load the saved data.table
-system.time( load("CRANlogs/CRANlogs.RData") )  # 11.5 mins
+system.time( load("CRANlogs.RData") )  # 6.9 mins
+#-- notice it was faster to import csvs using data.table's fread
+#-- then it was to read from .RData
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -148,6 +152,7 @@ system.time( load("CRANlogs/CRANlogs.RData") )  # 11.5 mins
 #_______________________________________________________________________________
 
 #-------------------- top 20 downloads
+
 # summarise
 x <- df[, .(downloads = .N), package][order(-downloads)]
 x[, .I[package == "data.table"]]  # data.table's ranking in overall downloads
@@ -161,13 +166,13 @@ a <- paste('Top', y, 'downloads')
 
 # graph
 b <-
-ggplot(x[1:y], aes(x=package, y=downloads)) +
-  geom_bar(stat = "identity") + 
-  scale_x_discrete(limits = z) +
-  xlab('') +
-  theme_minimal() +
-  scale_y_continuous(labels = comma) +
-  ggtitle(a)
+  ggplot(x[1:y], aes(x=package, y=downloads)) +
+    geom_bar(stat = "identity") + 
+    scale_x_discrete(limits = z) +
+    xlab('') +
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(a)
 
 # save graph
 ggsave(b
@@ -179,6 +184,7 @@ print(b)
 
 
 #-------------------- All downloads by date
+
 # summarise
 x <- df[, .(downloads = .N), week][, week := as.factor(week)][order(week)]
 
@@ -187,13 +193,13 @@ y <- 'Downloads by week'
 
 # graph
 z <-
-ggplot(x, aes(x = week, y = downloads, group = 1)) +
-  geom_line() +
-  # geom_text(aes(label=round(y)), hjust=0, vjust=0) +        # data point label
-  theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  # x axis angle
-  theme_minimal() +
-  scale_y_continuous(labels = comma) +
-  ggtitle(y)
+  ggplot(x, aes(x = week, y = downloads, group = 1)) +
+    geom_line() +
+    # geom_text(aes(label=round(y)), hjust=0, vjust=0) +        # data point label
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  # x axis angle
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(y)
 
 # save graph
 ggsave(z
@@ -205,6 +211,7 @@ print(z)
 
 
 #-------------------- Compare downloads of specific packages by week
+
 # summarise
 x <- c("data.table", "dplyr", "plyr", "dtplyr")
 y <- df[package %in% x
@@ -218,14 +225,14 @@ z <- 'Downloads of specific packages by week'
 
 # graph
 a <-
-ggplot(y, aes(x = week, y = downloads, color = package, group = package)) +
-  geom_line() +
-  ylab("Downloads") +
-  theme_bw() +
-  theme(axis.text.x  = element_text(angle=90, size=8, vjust=0.5)) +
-  theme_minimal() +
-  scale_y_continuous(labels = comma) +
-  ggtitle(z)
+  ggplot(y, aes(x = week, y = downloads, color = package, group = package)) +
+    geom_line() +
+    ylab("Downloads") +
+    theme_bw() +
+    theme(axis.text.x  = element_text(angle=90, size=8, vjust=0.5)) +
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(z)
 
 # save graph
 ggsave(a
@@ -237,6 +244,7 @@ print(a)
 
 
 #-------------------- Distribution (of mean downloads) by day of week
+
 # summarise
 x <- df[, .(downloads = .N)
         , .(day_of_week, week)
@@ -249,11 +257,11 @@ y <- 'Distribution of average downloads by day of week'
 
 # graph
 z <-
-ggplot(x, aes(x = day_of_week, y = downloads)) +
-  geom_bar(stat = 'identity') +
-  theme_minimal() +
-  scale_y_continuous(labels = comma) +
-  ggtitle(y)
+  ggplot(x, aes(x = day_of_week, y = downloads)) +
+    geom_bar(stat = 'identity') +
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(y)
 
 # save graph
 ggsave(z
@@ -265,6 +273,7 @@ print(z)
 
 
 #-------------------- Distribution (of mean downloads) by hour of day
+
 # summarise
 x <- df[, .(downloads = .N)
           , .(hour, date)
@@ -277,11 +286,11 @@ y <- 'Distribution of average downloads by hour of day'
 
 # graph
 z <-
-ggplot(x, aes(x = hour, y = downloads)) +
-  geom_bar(stat = 'identity') +
-  theme_minimal() +
-  scale_y_continuous(labels = comma) +
-  ggtitle(y)
+  ggplot(x, aes(x = hour, y = downloads)) +
+    geom_bar(stat = 'identity') +
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(y)
 
 # save graph
 ggsave(z
@@ -290,5 +299,88 @@ ggsave(z
        )
 
 print(z)
+
+
+#-------------------- Distribution of total downloads by country
+
+# summarise
+x <- df[, .(downloads = .N), country
+        ][, pc := paste(round( downloads / sum(downloads)*100, 1), '%')
+          ][order(-downloads)
+            ]
+
+# parameters
+y <- 10    # top n to display
+z <- x[1:y][['country']]
+
+# graph title
+a <- paste('Total downloads by country', '- top', y)
+
+# graph
+b <-
+  ggplot(x[1:y], aes(x=country, y=downloads)) +
+    geom_bar(stat = "identity") + 
+    geom_text( data = x[1:y], aes(x = country, y = downloads, label = pc), vjust = -1 ) +
+    scale_x_discrete(limits = z) +
+    xlab('') +
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(a)
+
+# save graph
+ggsave(b
+       , file = paste0("graphs/", a, '.jpg')
+       , width = 40, height = 23, dpi = 400, units = 'cm'
+       )
+
+print(b)
+
+
+#-------------------- Total downloads by week, country
+
+# summarise
+x <- df[, .(downloads = .N), .(week, country)
+        ][, total_country_downloads := sum(downloads)
+          , country
+          ][, total_country_downloads_rank := frank(-total_country_downloads, ties.method = 'dense')
+            ][, week := as.factor(week)
+              ][order(country, week)
+                ]
+
+# parameters
+y <- 5    # top n to display
+
+# graph title
+z <- paste('Total downloads by week, country', '- top', y, 'country')
+
+# graph
+a <-
+  ggplot(x[total_country_downloads_rank %between% c(1, y)]
+         , aes(x = week, y = downloads, group = country)
+         ) +
+    geom_line(aes(colour = country)) +
+    # geom_text(aes(label=round(y)), hjust=0, vjust=0) +        # data point label
+    theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  # x axis angle
+    theme_minimal() +
+    scale_y_continuous(labels = comma) +
+    ggtitle(z)
+
+# save graph
+ggsave(a
+       , file = paste0("graphs/", z, '.jpg')
+       , width = 40, height = 23, dpi = 400, units = 'cm'
+       )
+
+print(a)
+
+
+
+
+
+
+
+
+
+
 
 

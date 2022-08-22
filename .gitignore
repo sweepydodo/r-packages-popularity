@@ -2,5 +2,6 @@
 .Rhistory
 .RData
 .Ruserdata
-/CRANlogs
+CRANlogs
+CRANlogs.RData
 .RDataTmp
