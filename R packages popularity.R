@@ -106,6 +106,7 @@ Sys.time() - xxx
 #_______________________________________________________________________________
 
 x <- list.files("CRANlogs", full.names = T)     # list of csvs. Local machine can only take 3.5 months' data
+y <- c('date', 'time', 'package', 'country')    # import specific columns ONLY
 df <- vector('list', length(x))                  # initialise
 
 # import csvs
@@ -113,7 +114,7 @@ xxx <- Sys.time()
 for (i in seq_along(x))
 {
   print(paste(x[i], "-", round(i/length(x)*100, 1), ' %'))
-  df[[i]] <- fread(x[i])
+  df[[i]] <- fread(x[i],  select = y)
 }
 Sys.time() - xxx  # 11 mins
 
