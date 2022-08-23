@@ -138,10 +138,10 @@ df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
    ]
 )    # 12 mins
 
-# save as .RData
+# save data table as .RData
 system.time( save(df, file = "CRANlogs.RData") )  # 14 mins
 
-# for later analyses: load the saved data.table
+# for next R re-start: load the saved data table
 system.time( load("CRANlogs.RData") )  # 6.9 mins
 #-- notice it was faster to import csvs using data.table's fread
 #-- then it was to read from .RData
