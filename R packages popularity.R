@@ -106,7 +106,9 @@ Sys.time() - xxx
 #_______________________________________________________________________________
 
 x <- list.files("CRANlogs", full.names = T)     # list of csvs. Local machine can only take 3.5 months' data
-y <- c('date', 'time', 'package', 'country')    # import specific columns ONLY
+y <- c('date'
+       #, 'time', 'package', 'country'
+       )    # import specific columns ONLY
 df <- vector('list', length(x))                 # initialise
 
 # import csvs
@@ -131,8 +133,8 @@ system.time(
 df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
            # , package = factor(package)
            # , country = factor(country)
-            day_of_week = lubridate::wday(date, week_start = 1)  # 1 = Monday
-           , week = lubridate::isoweek(date)                 # week starts on Monday
+            day_of_week = lubridate::wday(date, week_start = 1)            # 1 = Monday
+           , week = lubridate::year(date)*100 + lubridate::isoweek(date)   # week starts on Monday. Leave as numeric for speed
            , hour = substr(time, 1,2)
            )
    ]
