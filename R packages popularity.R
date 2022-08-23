@@ -1,7 +1,6 @@
 
 library(ggplot2)
 library(scales)
-library(lubridate)
 # library(doParallel)
 library(data.table)
 setDTthreads(threads = parallel::detectCores()-1)
@@ -188,7 +187,12 @@ print(b)
 #-------------------- All downloads by date
 
 # summarise
-x <- df[, .(downloads = .N), week][, week := as.factor(week)][order(week)]
+x <- df[, .(downloads = .N), week]
+
+x <- x[2:(nrow(x)-1)   # assume 1st & last week is incomeplete
+       ][, week := paste0(substr(week,1,4), '-', substr(week,5,6))   # format x axis
+         ][order(week)
+           ]
 
 # graph title
 y <- 'Downloads by week'
@@ -197,9 +201,9 @@ y <- 'Downloads by week'
 z <-
   ggplot(x, aes(x = week, y = downloads, group = 1)) +
     geom_line() +
+    theme_minimal() +
     # geom_text(aes(label=round(y)), hjust=0, vjust=0) +        # data point label
     theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  # x axis angle
-    theme_minimal() +
     scale_y_continuous(labels = comma) +
     ggtitle(y)
 
