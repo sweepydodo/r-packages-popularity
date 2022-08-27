@@ -1,12 +1,13 @@
 
 library(ggplot2)
+library(ggrepel)
 library(scales)
 library(data.table)
 setDTthreads(threads = parallel::detectCores()-1)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#                   1. download all log files (to HDD)                      ----
+#                      download all log files (to HDD)                      ----
 #_______________________________________________________________________________
 
 # construct URLs
@@ -32,28 +33,31 @@ Sys.time() - xxx   # 7 hours
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#                          2. import csvs - in batches                     ----
+#                         import log csvs - in batches                  ----
 #_______________________________________________________________________________
 
+# parameters
 x <- list.files("CRANlogs", full.names = T)   # list of csvs. Local machine can only take 3.5 months' data
-y <- c('date', 'package', 'country'
+y <- c('date'
        #, 'time'
        )                                      # import specific columns ONLY
-z <- 1e2                                      # import ONLY 100 csvs at a time
-a <- length(x)                                # no of total csvs to import
-b <- seq(1, a, z)                             # index ith of start of each batch
-c <- "aggregated counts"
-dir.create(c)                                 # create folder to store aggregated counts
+z <- c('package', 'country')                  # group by cols
+a <- 1e2                                      # import ONLY n csvs at a time
+b <- length(x)                                # no of total csvs to import
+c <- seq(1, b, a)                             # index ith of start of each batch
+d <- "aggregated counts"
+dir.create(d)                                 # create folder to store aggregated counts
+
 
 # import csvs, aggregate then export as summary csv
 xxx <- Sys.time()
-for (i in b)
+for (i in c)
 {
   # print progress
   print(paste(x[i], "-", round(i/length(x)*100, 1), ' %'))
   
   # import csvs
-  df <- lapply( x[i:min(i+z-1, a)], \(j) fread(j,  select = y) )
+  df <- lapply( x[i:min(i+a-1, b)], \(j) fread(j,  select = c(y,z)) )
   
   # rbind
   df <- rbindlist(df)
@@ -68,29 +72,132 @@ for (i in b)
               # , hour = substr(time, 1,2)
               )
      ]
-  
-  # aggregate by country
-  country <- df[, .(downloads = .N), .(year_month, country)]
-  
-  # aggregate by package
-  package <- df[, .(downloads = .N), .(year_month, package)]
+
+  # aggregate downloads by...
+  e <- lapply(z, \(j) df[, .(downloads = .N), c('year_month', j)])
   
   # export as csv
-  lapply(list(country, package), \(j) fwrite(j
-                                             , paste0(c
-                                                      , "/downloads by month, "
-                                                      , names(j)[2]
-                                                      , " - "
-                                                      , " batch beginning "
-                                                      , substr(x[i:min(i+z-1, a)][1], 10, 19)
-                                                      , ".csv"
-                                                      )
-                                             )
+  lapply(e, \(j) fwrite(j
+                        , paste0(d
+                                 , "/downloads by month, "
+                                 , names(j)[2]
+                                 , " - "
+                                 , " batch beginning "
+                                 , substr(x[i:min(i+1-1, b)][1], 10, 19)
+                                 , ".csv"
+                                 )
+                        )
          )
   
 }
 Sys.time() - xxx  #
 
+rm(df)
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#                         import aggregated counts                     ----
+#_______________________________________________________________________________
+
+# parameters
+x <- list.files(d, full.names = T)            # list of aggregated counts' csvs
+y <- lapply(z, \(i) x[grepl(i, x)])           # separate csv names of different group by variable
+df <- vector('list', length(z))               # initialise empty list
+
+# import csvs then aggregate again
+for (i in seq_along(y))
+{
+  # import csvs
+  a <- lapply( y[[i]], \(j) fread(j) )
+  
+  # rbind
+  a <- rbindlist(a)
+  
+  # aggregate again (as same month may have been split across multiple csvs)
+  df[[i]] <- a[, .(downloads = sum(downloads)), c('year_month', z[[i]])]
+  
+}
+
+names(df) <- z
+
+# format year month col
+lapply(df, \(i) i[, year_month := paste0(substr(year_month,1,4), '-', substr(year_month,5,6))])
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#                              plot                     ----
+#_______________________________________________________________________________
+
+#--------------------------- by variable
+for(i in seq_along(df))
+{
+  # find top 4 overall value in group by variable
+  x <- 4
+  y <- df[[i]][, total_downloads := sum(downloads)
+               , eval(z[i])
+               ][, rank := frank(-total_downloads, ties.method = 'dense')
+                 ][rank %between% c(1, x)
+                   ]
+  
+  # create label for plot
+  y[y[, .I[year_month == max(year_month)]], label := get(z[i])]
+  
+  # graph title
+  a <- paste('Downloads of top', x, z[i], 'by month')
+  
+  # graph
+  b <- ggplot(y
+              , aes_string(x = 'year_month', y = 'downloads', color = z[i], group = z[i])
+              ) +
+          geom_line() +
+          theme_minimal() +
+          geom_label_repel(aes(label = label)
+                           , nudge_x = 1
+                           , na.rm = TRUE
+                           ) +
+          theme(legend.position="none") +
+          ylab("Downloads") +
+          theme(axis.text.x  = element_text(angle=50, vjust=0.5)) +
+          scale_y_continuous(labels = comma) 
+          # ggtitle(a)  # ggtitle crashes with geom_label_repel. R is making me choose between the 2
+  
+  
+  # save graph
+  ggsave(b
+         , file = paste0("graphs/", a, '.jpg')
+         , width = 40, height = 23, dpi = 400, units = 'cm'
+         , bg = "white"
+         )
+  
+  print(b)
+}
+
+
+#--------------------------- Total downloads (not by variable)
+
+# summarise
+x <- df[['country']][, .(downloads = sum(downloads)), year_month]
+
+# graph title
+y <- 'Downloads by year_month'
+
+# graph
+a <- ggplot(x, aes(x = year_month, y = downloads, group = 1)) +
+        geom_line() +
+        theme_minimal() +
+        # geom_text(aes(label=round(y)), hjust=0, vjust=0) +        # data point label
+        theme(axis.text.x = element_text(angle = 60, hjust = 1)) +  # x axis angle
+        scale_y_continuous(labels = comma) +
+        ggtitle(y)
+
+# save graph
+ggsave(a
+       , file = paste0("graphs/", y, '.jpg')
+       , width = 40, height = 23, dpi = 400, units = 'cm'
+       , bg = "white"
+       )
+
+print(a)
 
 
 
