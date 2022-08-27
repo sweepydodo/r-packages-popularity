@@ -90,7 +90,7 @@ for (i in c)
          )
   
 }
-Sys.time() - xxx  #
+Sys.time() - xxx  # 1.4 hrs
 
 rm(df)
 
@@ -104,6 +104,7 @@ x <- list.files(d, full.names = T)            # list of aggregated counts' csvs
 y <- lapply(z, \(i) x[grepl(i, x)])           # separate csv names of different group by variable
 df <- vector('list', length(z))               # initialise empty list
 
+xxx <- Sys.time()
 # import csvs then aggregate again
 for (i in seq_along(y))
 {
@@ -117,6 +118,7 @@ for (i in seq_along(y))
   df[[i]] <- a[, .(downloads = sum(downloads)), c('year_month', z[[i]])]
   
 }
+Sys.time() - xxx  # 1.1 secs
 
 names(df) <- z
 
