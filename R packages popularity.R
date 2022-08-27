@@ -80,9 +80,7 @@ setDTthreads(threads = parallel::detectCores()-1)
 # construct URLs
 x <- Sys.Date() - 365                     # start
 y <- Sys.Date() - 1                       # end
-z <- seq(x, y, by = 'day')                # all dates
-a <- as.POSIXlt(z)$year + 1900            # year
-b <- paste0('http://cran-logs.rstudio.com/', a, '/', z, '.csv.gz')   # urls
+z <- seq(x, y, by = 'day')                # date range from start to end
 
 # only download the files you don't have:
 dir.create("CRANlogs")
@@ -105,9 +103,9 @@ Sys.time() - xxx
 #_______________________________________________________________________________
 
 x <- list.files("CRANlogs", full.names = T)     # list of csvs. Local machine can only take 3.5 months' data
-y <- c('date'
-       #, 'time', 'package', 'country'
-       )    # import specific columns ONLY
+y <- c('date', 'package', 'country'
+       #, 'time'
+       )                                        # import specific columns ONLY
 df <- vector('list', length(x))                 # initialise
 
 # import csvs
@@ -132,8 +130,9 @@ system.time(
 df[, `:=` (#date = parse_date_time2(date, "%Y-%m-%d")
            # , package = factor(package)
            # , country = factor(country)
-            day_of_week = lubridate::wday(date, week_start = 1)            # 1 = Monday
+           year_month = lubridate::year(date)*100 + lubridate::month(date)
            , week = lubridate::year(date)*100 + lubridate::isoweek(date)   # week starts on Monday. Leave as numeric for speed
+           , day_of_week = lubridate::wday(date, week_start = 1)           # 1 = Monday
            , hour = substr(time, 1,2)
            )
    ]
@@ -145,7 +144,7 @@ system.time( save(df, file = "CRANlogs.RData") )  # 14 mins
 # for next R re-start: load the saved data table
 system.time( load("CRANlogs.RData") )  # 6.9 mins
 #-- notice it was faster to import csvs using data.table's fread
-#-- then it was to read from .RData
+#-- than it was to read from .RData
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
