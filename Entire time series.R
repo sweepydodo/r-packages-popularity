@@ -2,6 +2,7 @@
 library(ggplot2)
 library(ggrepel)
 library(scales)
+library(doParallel)
 library(data.table)
 setDTthreads(threads = parallel::detectCores()-1)
 
@@ -48,6 +49,11 @@ c <- seq(1, b, a)                             # index ith of start of each batch
 d <- "aggregated counts"
 dir.create(d)                                 # create folder to store aggregated counts
 
+# register cores for parallel running
+n_cores <- detectCores() - 1
+cl <- makeCluster(n_cores)
+registerDoParallel(cl, cores = n_cores)
+
 
 # import csvs, aggregate then export as summary csv
 xxx <- Sys.time()
@@ -56,8 +62,16 @@ for (i in c)
   # print progress
   print(paste(x[i], "-", round(i/length(x)*100, 1), ' %'))
   
-  # import csvs
-  df <- lapply( x[i:min(i+a-1, b)], \(j) fread(j,  select = c(y,z)) )
+  # # import csvs
+  # df <- lapply( x[i:min(i+a-1, b)], \(j) fread(j,  select = c(y,z)) )
+  
+  # parallel running - import csvs
+  df <- foreach(j = x[i:min(i+a-1, b)]
+                , .packages = c("data.table")
+                ) %dopar%
+    {
+      fread(j,  select = c(y,z))
+    }
   
   # rbind
   df <- rbindlist(df)
@@ -89,10 +103,16 @@ for (i in c)
                         )
          )
   
+  rm(df)
+  
 }
-Sys.time() - xxx  # 1.4 hrs
+Sys.time() - xxx  # 1.4 hrs (w/o parallel) 1.2 hrs (w parallel)
 
-rm(df)
+
+# stop hoarding cluster
+stopCluster(cl)
+
+rm(n_cores, cl, df)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -130,7 +150,10 @@ lapply(df, \(i) i[, year_month := paste0(substr(year_month,1,4), '-', substr(yea
 #                              plot                     ----
 #_______________________________________________________________________________
 
-#--------------------------- by variable
+dir.create('graphs')
+
+
+#-------------------- by variable
 for(i in seq_along(df))
 {
   # find top 4 overall value in group by variable
@@ -175,7 +198,7 @@ for(i in seq_along(df))
 }
 
 
-#--------------------------- Total downloads (not by variable)
+#-------------------- Total downloads (not by variable)
 
 # summarise
 x <- df[['country']][, .(downloads = sum(downloads)), year_month]
@@ -202,5 +225,43 @@ ggsave(a
 print(a)
 
 
+#-------------------- Compare downloads of specific packages by month
 
+# summarise
+x <- c("data.table", "dplyr", "plyr", "dtplyr")
+
+# subset
+y <- df[['package']][package %in% x]
+
+# create label for plot
+y[y[, .I[year_month == max(year_month)]], label := package]
+
+# graph title
+a <- paste('Downloads of specific packages by month')
+
+# graph
+b <- ggplot(y
+            , aes_string(x = 'year_month', y = 'downloads', color = 'package', group = 'package')
+            ) +
+        geom_line() +
+        theme_minimal() +
+        geom_label_repel(aes(label = label)
+                         , nudge_x = 1
+                         , na.rm = TRUE
+                         ) +
+        theme(legend.position="none") +
+        ylab("Downloads") +
+        theme(axis.text.x  = element_text(angle=50, vjust=0.5)) +
+        scale_y_continuous(labels = comma) 
+        # ggtitle(a)  # ggtitle crashes with geom_label_repel. R is making me choose between the 2
+
+
+# save graph
+ggsave(b
+       , file = paste0("graphs/", a, '.jpg')
+       , width = 40, height = 23, dpi = 400, units = 'cm'
+       , bg = "white"
+       )
+
+print(b)
 
